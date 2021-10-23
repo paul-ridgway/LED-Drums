@@ -1,3 +1,5 @@
+/// Arduino MEGA
+
 #include <MIDI.h>
 #include <ArduinoSTL.h>
 #include "Trigger.h"
@@ -329,4 +331,3 @@ const int clamp(const int value, const int min, const int max) {
   }
   return value;
 }
-
