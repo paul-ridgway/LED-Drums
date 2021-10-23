@@ -1,9 +1,9 @@
 /// Arduino MEGA
 
-#include <MIDI.h>
-#include <ArduinoSTL.h>
+#include "ArduinoSTL.h"
 #include "Trigger.h"
 #include "ActiveTrigger.h"
+#include <MIDI.h>
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
