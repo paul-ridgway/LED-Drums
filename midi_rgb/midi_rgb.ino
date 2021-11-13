@@ -1,9 +1,9 @@
 /// Arduino MEGA
 
-#include "ArduinoSTL.h"
 #include "Trigger.h"
 #include "ActiveTrigger.h"
-#include <MIDI.h>
+#include <Vector.h> // https://github.com/janelia-arduino/Vector
+#include <MIDI.h> // https://github.com/FortySevenEffects/arduino_midi_library
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
@@ -60,8 +60,8 @@ int idleCount = 0;
 long lastNoteAt = -IDLE_TIME;
 long lastIdleAt = -IDLE_TIME;
 
-const std::vector<byte> range(const byte start, const byte end, const byte step) {
-  std::vector<byte> result;
+const Vector<byte> range(const byte start, const byte end, const byte step) {
+  Vector<byte> result;
   byte value = start;
   while (value <= end) {
     result.push_back(value);
@@ -70,9 +70,9 @@ const std::vector<byte> range(const byte start, const byte end, const byte step)
   return result;
 }
 
-std::vector<Trigger*>* triggers[60]; //Note is a byte (could be smarter)
+Vector<Trigger*>* triggers[60]; //Note is a byte (could be smarter)
 
-std::vector<ActiveTrigger*> activeTriggers;
+Vector<ActiveTrigger*> activeTriggers;
 
 void setup()
 {
@@ -118,24 +118,28 @@ void setup()
   delay(1000);
   reset();
 
+  byte snareLeds[] = {129, 132, 54, 57, 14, 97};
+  Vector<byte> snare(snareLeds, sizeof(snareLeds));
+
   // Configure mapping
   addTrigger(BASS, range(58, 128, 2), 0.1, 0.1, 0.1, SHORT);
   addTrigger(BASS, range(87, 109,  1), 0.0, 1.0, 1.0, MEDIUM);
 
-  addTrigger(SNARE, {129, 132, 54, 57, 14, 97}, 1.0, 1.0, 1.0, SHORT);
+  addTrigger(SNARE, snare, 1.0, 1.0, 1.0, SHORT);
   addTrigger(SNARE, range(1, 58, 2), 0.1, 0.0, 0.0, 0.4);
   addTrigger(SNARE, range(128, LEDS, 2), 0.1, 0.0, 0.0, 0.4);
-  addTrigger(SNARE_RIM, {129, 132, 54, 57, 14, 97}, 1.0, 1.0, 0.0, SHORT);
-  addTrigger(SNARE_RIM2, {129, 132, 54, 57, 14, 97}, 1.0, 0.0, 1.0, SHORT);
+  addTrigger(SNARE_RIM, snare, 1.0, 1.0, 0.0, SHORT);
+  addTrigger(SNARE_RIM2, snare, 1.0, 0.0, 1.0, SHORT);
   addTrigger(SNARE_RIM, range(1, 58, 2), 0.1, 0.0, 0.0, 0.4);
   addTrigger(SNARE_RIM, range(128, LEDS, 2), 0.1, 0.0, 0.0, 0.4);
   addTrigger(SNARE_RIM2, range(1, 58, 2), 0.1, 0.0, 0.0, 0.4);
   addTrigger(SNARE_RIM2, range(128, LEDS, 2), 0.1, 0.0, 0.0, 0.4);
 
-  std::vector<byte> hi_hat_round = range(1, 58, 2);
-  const std::vector<byte> two = range(128, LEDS, 2);
-  hi_hat_round.insert(hi_hat_round.end(), two.begin(), two.end());
-
+  Vector<byte> hi_hat_round = range(1, 58, 2);
+  const Vector<byte> two = range(128, LEDS, 2);
+  for (unsigned int i = 0; i < two.size(); ++i) {
+    hi_hat_round.push_back(two[i]);
+  }
   addTrigger(HIHAT_RIM, range(132, 143, 1), 0.0, 1.0, 0.5, LONG);
   addTrigger(HIHAT_TOP, range(132, 143, 1), 0.0, 0.5, 1.0, LONG);
   addTrigger(HIHAT_PEDAL, range(132, 143, 1), 0.0, 1.0, 1.0, LONG);
@@ -193,9 +197,8 @@ void loop()
   digitalWrite(13, ((now / 100) % 2) ? HIGH : LOW);
 
   allSet(0, 0, 0);
-  std::vector<ActiveTrigger*>::iterator it = activeTriggers.begin();
-  while (it != activeTriggers.end()) {
-    const ActiveTrigger* activeTrigger = *it;
+  for (unsigned int i = 0; i < activeTriggers.size(); ++i) {
+    const ActiveTrigger* activeTrigger = activeTriggers[i];
     const Trigger* t = activeTrigger->getTrigger();
     const int r = activeTrigger->r();
     const int g = activeTrigger->g();
@@ -207,10 +210,8 @@ void loop()
       color_g[j] = clamp((g + color_g[j]), 0, 255);
       color_b[j] = clamp((b + color_b[j]), 0, 255);
     }
-    if (activeTrigger->decay(millis())) {
-      ++it;
-    } else {
-      it = activeTriggers.erase(it);
+    if (!activeTrigger->decay(millis())) {
+      activeTriggers.remove(i);
       delete activeTrigger;
     }
     handleMidi();  //Midi doesnt like external delays, seems to drop data
@@ -223,7 +224,7 @@ void loop()
   writeOut();
 
   const unsigned long start = millis();
-  while(millis() - start < 5) {
+  while (millis() - start < 5) {
     handleMidi();
   }
 }
@@ -292,17 +293,17 @@ void handleMidi() {
 }
 
 void handleNote(const byte note, const float force) {
-  std::vector<Trigger*>* trigs = triggers[note];
+  Vector<Trigger*>* trigs = triggers[note];
   if (trigs) {
-    for (std::vector<Trigger*>::iterator it = trigs->begin(); it != trigs->end(); ++it) {
+    for (Vector<Trigger*>::iterator it = trigs->begin(); it != trigs->end(); ++it) {
       activeTriggers.push_back(new ActiveTrigger(*it, force, millis()));
     }
   }
 }
 
-void addTrigger(const byte note, const std::vector<byte> leds, const float r, const float g, const float b, const int d) {
+void addTrigger(const byte note, const Vector<byte> leds, const float r, const float g, const float b, const int d) {
   if (!triggers[note]) {
-    triggers[note] = new std::vector<Trigger*>();
+    triggers[note] = new Vector<Trigger*>();
   }
   triggers[note]->push_back(new Trigger(leds, r, g, b, d));
 }

@@ -1,18 +1,19 @@
 #pragma once
-
-#include "ArduinoSTL.h"
+#include <Vector.h> // https://github.com/janelia-arduino/Vector
 
 class Trigger {
   public:
     //TODO: Store in array not vector
-    Trigger(const std::vector<byte> leds, const float r, const float g, const float b, const int decay) : 
+    Trigger(const Vector<byte> leds, const float r, const float g, const float b, const int decay) : 
     r_(r),
     g_(g),
     b_(b),
     decay_(decay) {
       ledCount_ = leds.size();
       leds_ = malloc(ledCount_);
-      std::copy(leds.begin(), leds.end(), leds_);      
+      for(unsigned int i = 0; i < ledCount_; ++i) {
+        leds_[i] = leds[0];
+      }
     }
 
     const float r() {
