@@ -2,10 +2,10 @@
 
 #include "Trigger.h"
 #include "ActiveTrigger.h"
-#include <Vector.h> // https://github.com/janelia-arduino/Vector
-#include <MIDI.h> // https://github.com/FortySevenEffects/arduino_midi_library
+#include <Array.h> // https://github.com/janelia-arduino/Array
+// #include <MIDI.h> // https://github.com/FortySevenEffects/arduino_midi_library
 
-MIDI_CREATE_DEFAULT_INSTANCE();
+// MIDI_CREATE_DEFAULT_INSTANCE();
 
 #define LED 13
 #define IDLE_TIME 20000
@@ -60,8 +60,8 @@ int idleCount = 0;
 long lastNoteAt = -IDLE_TIME;
 long lastIdleAt = -IDLE_TIME;
 
-const Vector<byte> range(const byte start, const byte end, const byte step) {
-  Vector<byte> result;
+const Array<byte, LEDS> range(const byte start, const byte end, const byte step) {
+  Array<byte, LEDS> result;
   byte value = start;
   while (value <= end) {
     result.push_back(value);
@@ -70,16 +70,21 @@ const Vector<byte> range(const byte start, const byte end, const byte step) {
   return result;
 }
 
-Vector<Trigger*>* triggers[60]; //Note is a byte (could be smarter)
+Array<Trigger*, 60>* triggers[60]; //Note is a byte (could be smarter)
 
-Vector<ActiveTrigger*> activeTriggers;
+Array<ActiveTrigger*, 60> activeTriggers;
 
 void setup()
 {
   pinMode(LED, OUTPUT);
 
-  MIDI.begin(10);
+  Serial.begin(31250);
   Serial1.begin(115200);
+  Serial2.begin(115200);
+  while(!Serial1 || !Serial2) {
+    // noop
+  }
+  Serial2.println("Start!");
 
 
   delay(100);
@@ -119,7 +124,7 @@ void setup()
   reset();
 
   byte snareLeds[] = {129, 132, 54, 57, 14, 97};
-  Vector<byte> snare(snareLeds, sizeof(snareLeds));
+  Array<byte, LEDS> snare(snareLeds);
 
   // Configure mapping
   addTrigger(BASS, range(58, 128, 2), 0.1, 0.1, 0.1, SHORT);
@@ -135,8 +140,8 @@ void setup()
   addTrigger(SNARE_RIM2, range(1, 58, 2), 0.1, 0.0, 0.0, 0.4);
   addTrigger(SNARE_RIM2, range(128, LEDS, 2), 0.1, 0.0, 0.0, 0.4);
 
-  Vector<byte> hi_hat_round = range(1, 58, 2);
-  const Vector<byte> two = range(128, LEDS, 2);
+  Array<byte, LEDS> hi_hat_round = range(1, 58, 2);
+  const Array<byte, LEDS> two = range(128, LEDS, 2);
   for (unsigned int i = 0; i < two.size(); ++i) {
     hi_hat_round.push_back(two[i]);
   }
@@ -224,7 +229,7 @@ void loop()
   writeOut();
 
   const unsigned long start = millis();
-  while (millis() - start < 5) {
+  while (millis() - start < 10) {
     handleMidi();
   }
 }
@@ -274,38 +279,54 @@ bool waitFor(const byte target, const unsigned long timeout) {
 
 void handleMidi() {
   //WRITEUP: Explain why basic midi loop did not work for close timing
-  while (MIDI.read())                // Is there a MIDI message incoming ?
+  while (Serial.available())                // Is there a MIDI message incoming ?
   {
-    switch (MIDI.getType())     // Get the type of the message we caught
-    {
-      case midi::NoteOn:
-        lastNoteAt = millis();
-        {
-          const float force = ((float)MIDI.getData2()) / 127.0f; //Max velocity from drums
-          handleNote(MIDI.getData1(), force);
-        }
-        break;
-      default:
-        break;
-    }
+    Serial2.print("Message! ");
+    Serial2.println(Serial.read());
+//    switch (MIDI.getType())     // Get the type of the message we caught
+//    {
+//      case midi::NoteOn:
+//        lastNoteAt = millis();
+//        {
+//          const float force = ((float)MIDI.getData2()) / 127.0f; //Max velocity from drums
+//          handleNote(MIDI.getData1(), force);
+//        }
+//        break;
+//      default:
+//        break;
+//    }
   }
 
 }
 
 void handleNote(const byte note, const float force) {
-  Vector<Trigger*>* trigs = triggers[note];
+  Array<Trigger*, 60>* trigs = triggers[note];
   if (trigs) {
-    for (Vector<Trigger*>::iterator it = trigs->begin(); it != trigs->end(); ++it) {
+    Serial2.print("handleNote, note: ");
+    Serial2.print(note);
+    Serial2.print(", force: ");
+    Serial2.println(force);
+    Serial2.println(trigs->size());
+    
+    for (Array<Trigger*, 60>::iterator it = trigs->begin(); it != trigs->end(); ++it) {
+      Serial2.print("new AT");
       activeTriggers.push_back(new ActiveTrigger(*it, force, millis()));
     }
+  } else {
+    Serial2.print("Missing trigger for: ");
+    Serial2.println(note);
   }
 }
 
-void addTrigger(const byte note, const Vector<byte> leds, const float r, const float g, const float b, const int d) {
+void addTrigger(const byte note, const Array<byte, LEDS> leds, const float r, const float g, const float b, const int d) {
+  Serial2.print("Add trigger: ");
+  Serial2.println(note);
+  
   if (!triggers[note]) {
-    triggers[note] = new Vector<Trigger*>();
+    triggers[note] = new Array<Trigger*, 60>();
   }
   triggers[note]->push_back(new Trigger(leds, r, g, b, d));
+  Serial2.println(triggers[note]->size());
 }
 
 void reset() {

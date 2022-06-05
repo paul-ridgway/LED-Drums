@@ -36,7 +36,6 @@ void setup()
 
 void loop()
 {
-  digitalWrite(13, ((millis() / 100) % 2) ? HIGH : LOW);
 
   // if we get a valid byte, read analog ins:
   if (Serial.available() > 0) {
@@ -58,6 +57,7 @@ void loop()
           leds.setPixelColor(i, r, g, b);
         }
         leds.show();
+        digitalWrite(13, ((millis() / 100) % 2) ? HIGH : LOW);
         Serial.write(254);
       }
     }

@@ -1,15 +1,15 @@
 #pragma once
-#include <Vector.h> // https://github.com/janelia-arduino/Vector
+#include <Array.h> // https://github.com/janelia-arduino/Array
 
 class Trigger {
   public:
     //TODO: Store in array not vector
-    Trigger(const Vector<byte> leds, const float r, const float g, const float b, const int decay) : 
+    Trigger(const int leds[], const float r, const float g, const float b, const int decay) : 
     r_(r),
     g_(g),
     b_(b),
     decay_(decay) {
-      ledCount_ = leds.size();
+      ledCount_ = sizeof(leds) / sizeof(leds[0]);
       leds_ = malloc(ledCount_);
       for(unsigned int i = 0; i < ledCount_; ++i) {
         leds_[i] = leds[0];
